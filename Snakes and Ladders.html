@@ -1,0 +1,833 @@
+
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snakes & Ladders - Local Rooms</title>
+<style>
+:root{
+  --cell:72px;
+  --board:720px;
+}
+body{
+  margin:0;
+  font-family:Arial, sans-serif;
+  background:#eaf7ff;
+  text-align:center;
+  color:#243044;
+}
+h1{margin:14px 0 4px}
+#status{font-size:20px;margin:6px}
+#topbar{
+  display:flex;
+  justify-content:center;
+  gap:14px;
+  align-items:center;
+  margin:10px;
+}
+button{
+  border:0;
+  border-radius:14px;
+  padding:12px 20px;
+  font-size:18px;
+  background:#ffcf4a;
+  box-shadow:0 4px 0 #b78920;
+}
+button:active{transform:translateY(3px);box-shadow:0 1px 0 #b78920}
+button:disabled{opacity:.55}
+#dice{
+  width:58px;height:58px;background:white;border-radius:14px;
+  box-shadow:0 4px 12px #0002;
+  display:grid;place-items:center;
+  font-size:30px;font-weight:bold;
+}
+#wrap{
+  position:relative;
+  width:var(--board);
+  height:var(--board);
+  margin:14px auto 24px;
+  border:8px solid #6b4b2a;
+  border-radius:22px;
+  overflow:hidden;
+  box-shadow:0 12px 28px #0003;
+  background:#fff;
+}
+#board{
+  display:grid;
+  grid-template-columns:repeat(10,var(--cell));
+  grid-template-rows:repeat(10,var(--cell));
+  width:var(--board);
+  height:var(--board);
+}
+.square{
+  position:relative;
+  border:1px solid #ffffffaa;
+  box-sizing:border-box;
+}
+.square:nth-child(odd){background:#fff8d8}
+.square:nth-child(even){background:#dff7d8}
+.square.finish{background:#ffe66d}
+.num{
+  position:absolute;
+  top:4px;
+  left:6px;
+  font-size:12px;
+  font-weight:bold;
+  color:#5b5b5b;
+}
+.indicator{
+  position:absolute;
+  right:5px;
+  bottom:5px;
+  width:26px;
+  height:26px;
+  border-radius:7px;
+  display:grid;
+  place-items:center;
+  font-size:17px;
+  box-shadow:0 2px 4px #0003;
+  z-index:4;
+}
+.indicator.snakeSpot{background:#39b86a}
+.indicator.ladderSpot{background:#a76a32}
+#overlay{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+}
+.path{
+  position:absolute;
+  height:13px;
+  border-radius:99px;
+  transform-origin:left center;
+  box-shadow:0 2px 4px #0003;
+  z-index:6;
+}
+.snake{
+  background:repeating-linear-gradient(90deg,#2f9e44 0 14px,#51cf66 14px 28px);
+}
+.ladderRail{
+  position:absolute;
+  height:7px;
+  background:#9b632c;
+  border-radius:99px;
+  transform-origin:left center;
+  box-shadow:0 1px 3px #0003;
+  z-index:6;
+}
+.rung{
+  position:absolute;
+  width:5px;
+  height:24px;
+  background:#d59a52;
+  border-radius:99px;
+  transform-origin:center center;
+  z-index:6;
+}
+.emoji{
+  position:absolute;
+  font-size:24px;
+  transform:translate(-50%,-50%);
+  filter:drop-shadow(0 2px 2px #0003);
+  z-index:7;
+}
+.pawn{
+  position:absolute;
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  transform:translate(-50%,-50%);
+  z-index:20;
+  box-shadow:0 3px 5px #0005;
+  border:2px solid white;
+  transition:left .22s ease, top .22s ease;
+}
+#p1{background:#e03131}
+#p2{background:#1971c2}
+#p3{background:#f2c94c}
+#p4{background:#2f9e44}
+#msg{min-height:24px;font-size:16px;font-weight:bold}
+
+#settingsBtn{
+  position:fixed;
+  right:14px;
+  top:14px;
+  z-index:50;
+  width:44px;
+  height:44px;
+  padding:0;
+  border-radius:50%;
+  font-size:22px;
+}
+#roomPanel{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  align-items:center;
+  gap:8px;
+  margin:8px auto 4px;
+  max-width:720px;
+}
+#roomPanel input, #settingsBox input, #settingsBox select{
+  font-size:16px;
+  padding:9px 10px;
+  border:2px solid #b7c7d8;
+  border-radius:10px;
+}
+.smallBtn{
+  font-size:15px;
+  padding:9px 12px;
+  border-radius:10px;
+}
+#roomInfo{
+  font-weight:bold;
+  min-height:22px;
+}
+.modalBack{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:#0006;
+  z-index:100;
+  align-items:center;
+  justify-content:center;
+}
+.modalBack.show{display:flex}
+#settingsBox{
+  background:white;
+  border-radius:18px;
+  padding:18px;
+  width:min(330px,90vw);
+  box-shadow:0 10px 30px #0005;
+}
+#settingsBox h2{margin-top:0}
+#settingsBox label{
+  display:block;
+  text-align:left;
+  font-weight:bold;
+  margin:10px 0 5px;
+}
+#settingsBox input{width:100%;box-sizing:border-box}
+#settingsBox .row{
+  display:flex;
+  gap:8px;
+  margin-top:14px;
+}
+#settingsBox .row button{flex:1}
+
+
+#roomPanel{
+  margin-top:18px;
+  margin-bottom:12px;
+  gap:14px;
+}
+#roomPanel .smallBtn{
+  min-width:96px;
+}
+#roomInfo{
+  margin:12px auto 18px;
+  padding:10px 14px;
+  max-width:720px;
+  background:#ffffffaa;
+  border-radius:14px;
+  box-shadow:0 2px 8px #0001;
+}
+#playerListBtn{
+  display:none;
+  margin:0 auto 22px;
+  background:#e03131;
+  box-shadow:0 4px 0 #8f1d1d;
+  color:white;
+}
+#playerListBtn:active{
+  box-shadow:0 1px 0 #8f1d1d;
+}
+.playerRow{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  padding:8px 10px;
+  border-radius:10px;
+  background:#f3f6fa;
+  margin:6px 0;
+  font-weight:bold;
+}
+
+
+#gameArea{
+  display:none;
+}
+#gameArea.show{
+  display:block;
+}
+
+@media(max-width:760px){
+  :root{--cell:9.2vw;--board:92vw}
+  #wrap{border-width:5px}
+}
+</style>
+</head>
+<body>
+<button id="settingsBtn" onclick="openSettings()">⚙️</button>
+
+<h1>🐍 Snakes & Ladders 🪜</h1>
+
+<div id="roomPanel">
+  <button class="smallBtn" onclick="openCreateModal()">Create</button>
+  <button class="smallBtn" onclick="openJoinModal()">Join</button>
+  <button class="smallBtn" onclick="leaveRoom()">Leave</button>
+</div>
+<div id="roomInfo">No room yet</div>
+
+<div id="gameArea">
+  <div id="status">Player 1's turn</div>
+  <div id="topbar">
+    <button id="rollBtn" onclick="rollDice()">Roll Dice</button>
+    <div id="dice">-</div>
+  </div>
+  <div id="msg"></div>
+
+  <div id="wrap">
+    <div id="board"></div>
+    <div id="overlay"></div>
+  </div>
+
+  <button id="playerListBtn" class="smallBtn" onclick="openPlayerList()">Player List</button>
+</div>
+
+<div id="settingsModal" class="modalBack">
+  <div id="settingsBox">
+    <h2>Settings</h2>
+    <label for="usernameInput">Username</label>
+    <input id="usernameInput" placeholder="Player">
+    <div class="row">
+      <button class="smallBtn" onclick="saveSettings()">Save</button>
+      <button class="smallBtn" onclick="closeSettings()">Close</button>
+    </div>
+  </div>
+</div>
+
+
+<div id="createModal" class="modalBack">
+  <div id="settingsBox">
+    <h2>Room Settings</h2>
+    <label for="playerCount">Players</label>
+    <select id="playerCount">
+      <option value="1">1 player</option>
+      <option value="2" selected>2 players</option>
+      <option value="3">3 players</option>
+      <option value="4">4 players</option>
+    </select>
+    <div class="row">
+      <button class="smallBtn" onclick="createRoom()">Create</button>
+      <button class="smallBtn" onclick="closeCreateModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="joinModal" class="modalBack">
+  <div id="settingsBox">
+    <h2>Join Room</h2>
+    <label for="joinCode">Room Code:</label>
+    <input id="joinCode" placeholder="ABC123" maxlength="6">
+    <div class="row">
+      <button class="smallBtn" onclick="joinRoom()">Join</button>
+      <button class="smallBtn" onclick="closeJoinModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+
+<div id="playerListModal" class="modalBack">
+  <div id="settingsBox">
+    <h2>Player List</h2>
+    <div id="playerListContent"></div>
+    <div class="row">
+      <button class="smallBtn" onclick="closePlayerList()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const board = document.getElementById("board");
+const overlay = document.getElementById("overlay");
+const diceBox = document.getElementById("dice");
+const statusText = document.getElementById("status");
+const msg = document.getElementById("msg");
+const rollBtn = document.getElementById("rollBtn");
+
+let positions = [1,1];
+let currentPlayer = 0;
+let gameOver = false;
+let moving = false;
+
+let username = localStorage.getItem("sl_username") || "Player";
+let currentRoomCode = localStorage.getItem("sl_currentRoom") || "";
+let maxPlayers = 2;
+let joinedPlayers = 1;
+let myPlayerIndex = Number(localStorage.getItem("sl_myPlayerIndex") || 0);
+let players = [];
+
+const snakes = {16:6, 47:26, 49:11, 62:19, 87:24, 98:78};
+const ladders = {2:38, 7:14, 21:42, 28:84, 51:67, 71:91};
+
+let nums = [];
+for(let row=9; row>=0; row--){
+  let rowNums = [];
+  for(let col=1; col<=10; col++) rowNums.push(row*10+col);
+  if(row % 2 === 1) rowNums.reverse();
+  nums.push(...rowNums);
+}
+
+function generateCode(){
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for(let i=0;i<6;i++) code += chars[Math.floor(Math.random()*chars.length)];
+  return code;
+}
+
+function makeDefaultPlayers(count){
+  return Array.from({length:count}, (_,i)=>({username:""}));
+}
+
+function playerName(index){
+  return players[index]?.username || ("Player " + (index + 1));
+}
+
+function refreshMyUsernameInRoom(){
+  if(players[myPlayerIndex]){
+    players[myPlayerIndex].username = username;
+  }
+}
+
+function saveRoom(){
+  if(!currentRoomCode) return;
+  refreshMyUsernameInRoom();
+  const room = {
+    code: currentRoomCode,
+    username,
+    positions,
+    currentPlayer,
+    gameOver,
+    maxPlayers,
+    joinedPlayers,
+    players
+  };
+  localStorage.setItem("sl_room_" + currentRoomCode, JSON.stringify(room));
+  localStorage.setItem("sl_currentRoom", currentRoomCode);
+}
+
+function loadRoom(code){
+  const raw = localStorage.getItem("sl_room_" + code);
+  if(!raw) return false;
+  const room = JSON.parse(raw);
+  currentRoomCode = room.code;
+  positions = room.positions || [1,1];
+  currentPlayer = room.currentPlayer || 0;
+  gameOver = !!room.gameOver;
+  maxPlayers = room.maxPlayers || 2;
+  joinedPlayers = room.joinedPlayers || 1;
+  players = room.players || makeDefaultPlayers(maxPlayers);
+  localStorage.setItem("sl_currentRoom", currentRoomCode);
+  updateRoomInfo();
+  showGame();
+  statusText.textContent = gameOver ? "Game finished!" : (maxPlayers === 1 ? "Singleplayer" : `${playerName(currentPlayer)}'s turn`);
+  makeBoard();
+  return true;
+}
+
+function openCreateModal(){
+  document.getElementById("createModal").classList.add("show");
+}
+
+function closeCreateModal(){
+  document.getElementById("createModal").classList.remove("show");
+}
+
+function createRoom(){
+  let code = generateCode();
+  while(localStorage.getItem("sl_room_" + code)){
+    code = generateCode();
+  }
+
+  maxPlayers = Number(document.getElementById("playerCount").value) || 2;
+  joinedPlayers = 1;
+  myPlayerIndex = 0;
+  localStorage.setItem("sl_myPlayerIndex", myPlayerIndex);
+  currentRoomCode = code;
+  positions = Array(maxPlayers).fill(1);
+  players = makeDefaultPlayers(maxPlayers);
+  players[0].username = username;
+  currentPlayer = 0;
+  gameOver = false;
+  diceBox.textContent = "-";
+  msg.textContent = "Local room created.";
+  statusText.textContent = maxPlayers === 1 ? "Singleplayer" : `${playerName(0)}'s turn`;
+  saveRoom();
+  updateRoomInfo();
+  showGame();
+  makeBoard();
+  closeCreateModal();
+}
+
+function openJoinModal(){
+  document.getElementById("joinCode").value = "";
+  document.getElementById("joinModal").classList.add("show");
+}
+
+function closeJoinModal(){
+  document.getElementById("joinModal").classList.remove("show");
+}
+
+function joinRoom(){
+  const code = document.getElementById("joinCode").value.trim().toUpperCase();
+  if(!code){
+    msg.textContent = "Type a room code first.";
+    return;
+  }
+
+  const raw = localStorage.getItem("sl_room_" + code);
+  if(!raw){
+    msg.textContent = "No local room found with that code.";
+    return;
+  }
+
+  const room = JSON.parse(raw);
+  if((room.joinedPlayers || 1) >= (room.maxPlayers || 2)){
+    msg.textContent = "Lobby full!";
+    return;
+  }
+
+  myPlayerIndex = room.joinedPlayers || 1;
+  localStorage.setItem("sl_myPlayerIndex", myPlayerIndex);
+  room.players = room.players || makeDefaultPlayers(room.maxPlayers || 2);
+  room.players[myPlayerIndex] = {username};
+  room.joinedPlayers = (room.joinedPlayers || 1) + 1;
+  localStorage.setItem("sl_room_" + code, JSON.stringify(room));
+
+  if(loadRoom(code)){
+    msg.textContent = "Joined local room.";
+    closeJoinModal();
+  }
+}
+
+function leaveRoom(){
+  if(currentRoomCode){
+    localStorage.removeItem("sl_room_" + currentRoomCode);
+  }
+
+  currentRoomCode = "";
+  myPlayerIndex = 0;
+  maxPlayers = 2;
+  joinedPlayers = 1;
+  players = [];
+  positions = [1,1];
+  currentPlayer = 0;
+  gameOver = false;
+  moving = false;
+
+  localStorage.setItem("sl_myPlayerIndex", myPlayerIndex);
+  localStorage.removeItem("sl_currentRoom");
+
+  diceBox.textContent = "-";
+  statusText.textContent = "Player 1's turn";
+  msg.textContent = "Left room.";
+  board.innerHTML = "";
+  overlay.innerHTML = "";
+
+  updateRoomInfo();
+  hideGame();
+}
+
+function updateRoomInfo(){
+  const info = document.getElementById("roomInfo");
+  if(currentRoomCode){
+    info.textContent = `Local room: ${currentRoomCode}  •  You are ${username}  •  Players: ${joinedPlayers}/${maxPlayers}`;
+  }else{
+    info.textContent = `No room yet  •  Username: ${username}`;
+  }
+  updatePlayerListButton();
+}
+
+function openSettings(){
+  document.getElementById("usernameInput").value = username;
+  document.getElementById("settingsModal").classList.add("show");
+}
+
+function closeSettings(){
+  document.getElementById("settingsModal").classList.remove("show");
+}
+
+function saveSettings(){
+  const value = document.getElementById("usernameInput").value.trim();
+  username = value || "Player";
+  localStorage.setItem("sl_username", username);
+  refreshMyUsernameInRoom();
+  updateRoomInfo();
+  saveRoom();
+  closeSettings();
+}
+
+function showGame(){
+  document.getElementById("gameArea").classList.add("show");
+}
+
+function hideGame(){
+  document.getElementById("gameArea").classList.remove("show");
+}
+
+function updatePlayerListButton(){
+  const btn = document.getElementById("playerListBtn");
+  if(currentRoomCode && maxPlayers >= 2){
+    btn.style.display = "block";
+  }else{
+    btn.style.display = "none";
+  }
+}
+
+function openPlayerList(){
+  const content = document.getElementById("playerListContent");
+  content.innerHTML = "";
+
+  for(let i=0; i<maxPlayers; i++){
+    const row = document.createElement("div");
+    row.className = "playerRow";
+
+    let name = "Empty";
+    if(i < joinedPlayers){
+      name = playerName(i);
+      if(i === myPlayerIndex) name += " (you)";
+    }
+
+    row.innerHTML = `<span>${name}</span>`;
+    content.appendChild(row);
+  }
+
+  document.getElementById("playerListModal").classList.add("show");
+}
+
+function closePlayerList(){
+  document.getElementById("playerListModal").classList.remove("show");
+}
+
+function sleep(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
+
+function cellSize(){
+  return document.getElementById("wrap").clientWidth / 10;
+}
+
+function centre(num){
+  const size = cellSize();
+  const i = nums.indexOf(num);
+  return {
+    x:(i%10)*size + size/2,
+    y:Math.floor(i/10)*size + size/2
+  };
+}
+
+function makeBoard(){
+  board.innerHTML = "";
+  nums.forEach(n=>{
+    const sq = document.createElement("div");
+    sq.className = "square" + (n===100 ? " finish" : "");
+    let indicator = "";
+    if(snakes[n]) indicator = `<div class="indicator snakeSpot">🐍</div>`;
+    if(ladders[n]) indicator = `<div class="indicator ladderSpot">🪜</div>`;
+    sq.innerHTML = `<div class="num">${n}</div>${indicator}`;
+    board.appendChild(sq);
+  });
+  drawOverlay();
+  drawPlayers();
+}
+
+function drawOverlay(){
+  overlay.innerHTML = "";
+
+  for(const start in snakes){
+    drawSnake(Number(start), snakes[start]);
+  }
+  for(const start in ladders){
+    drawLadder(Number(start), ladders[start]);
+  }
+}
+
+function addRotated(cls, x, y, len, ang){
+  const el = document.createElement("div");
+  el.className = cls;
+  el.style.left = x + "px";
+  el.style.top = y + "px";
+  el.style.width = len + "px";
+  el.style.transform = `rotate(${ang}deg)`;
+  overlay.appendChild(el);
+  return el;
+}
+
+function drawSnake(start,end){
+  const a = centre(start), b = centre(end);
+  const dx = b.x-a.x, dy = b.y-a.y;
+  const len = Math.hypot(dx,dy);
+  const ang = Math.atan2(dy,dx)*180/Math.PI;
+  addRotated("path snake", a.x, a.y-6, len, ang);
+
+  const head = document.createElement("div");
+  head.className = "emoji";
+  head.textContent = "🐍";
+  head.style.left = a.x + "px";
+  head.style.top = a.y + "px";
+  overlay.appendChild(head);
+}
+
+function drawLadder(start,end){
+  const a = centre(start), b = centre(end);
+  const dx = b.x-a.x, dy = b.y-a.y;
+  const len = Math.hypot(dx,dy);
+  const ang = Math.atan2(dy,dx)*180/Math.PI;
+  const rad = Math.atan2(dy,dx);
+  const offX = Math.sin(rad)*9;
+  const offY = -Math.cos(rad)*9;
+
+  addRotated("ladderRail", a.x+offX, a.y+offY, len, ang);
+  addRotated("ladderRail", a.x-offX, a.y-offY, len, ang);
+
+  const icon = document.createElement("div");
+  icon.className = "emoji";
+  icon.textContent = "🪜";
+  icon.style.left = a.x + "px";
+  icon.style.top = a.y + "px";
+  overlay.appendChild(icon);
+}
+
+function drawPlayers(){
+  document.querySelectorAll(".pawn").forEach(p=>p.remove());
+  positions.forEach((pos,i)=>{
+    const p = document.createElement("div");
+    p.className = "pawn";
+    p.id = "p" + (i + 1);
+    overlay.appendChild(p);
+    placePawn(p, pos, i);
+  });
+}
+
+function placePawn(pawn, pos, i){
+  const c = centre(pos);
+  const sameSpot = positions
+    .map((p, index) => ({p, index}))
+    .filter(item => item.p === pos);
+
+  const spotIndex = sameSpot.findIndex(item => item.index === i);
+  const total = sameSpot.length;
+
+  let offsetX = 0;
+  let offsetY = 0;
+
+  if(total === 2){
+    offsetX = spotIndex === 0 ? -8 : 8;
+  }
+
+  if(total === 3){
+    const offsets = [
+      {x:0, y:-9},
+      {x:-9, y:8},
+      {x:9, y:8}
+    ];
+    offsetX = offsets[spotIndex].x;
+    offsetY = offsets[spotIndex].y;
+  }
+
+  if(total >= 4){
+    const offsets = [
+      {x:-12, y:-12},
+      {x:12, y:-12},
+      {x:-12, y:12},
+      {x:12, y:12}
+    ];
+    offsetX = offsets[spotIndex % 4].x;
+    offsetY = offsets[spotIndex % 4].y;
+  }
+
+  pawn.style.left = (c.x + offsetX) + "px";
+  pawn.style.top = (c.y + offsetY) + "px";
+}
+
+async function movePlayer(player, from, to, usePath=false){
+  const pawn = document.getElementById("p" + (player + 1));
+
+  if(usePath){
+    positions[player] = to;
+    placePawn(pawn, to, player);
+    await sleep(420);
+    return;
+  }
+
+  for(let p = from + 1; p <= to; p++){
+    positions[player] = p;
+    placePawn(pawn, p, player);
+    await sleep(230);
+  }
+}
+
+async function rollDice(){
+  if(gameOver || moving) return;
+
+  if(positions.length > 1 && currentPlayer !== myPlayerIndex){
+    msg.textContent = `Not your turn! It is ${playerName(currentPlayer)}'s turn.`;
+    return;
+  }
+
+  moving = true;
+  rollBtn.disabled = true;
+  msg.textContent = "";
+
+  const roll = Math.floor(Math.random()*6)+1;
+  diceBox.textContent = roll;
+
+  const player = currentPlayer;
+  const oldPos = positions[player];
+  let newPos = oldPos + roll;
+
+  if(newPos > 100){
+    msg.textContent = "Too high! Stay where you are.";
+    await sleep(500);
+  }else{
+    await movePlayer(player, oldPos, newPos);
+  }
+
+  if(snakes[newPos]){
+    msg.textContent = `${playerName(player)} found a snake!`;
+    await sleep(450);
+    await movePlayer(player, newPos, snakes[newPos], true);
+    newPos = snakes[newPos];
+  } else if(ladders[newPos]){
+    msg.textContent = `${playerName(player)} climbed a ladder!`;
+    await sleep(450);
+    await movePlayer(player, newPos, ladders[newPos], true);
+    newPos = ladders[newPos];
+  }
+
+  if(newPos === 100){
+    gameOver = true;
+    statusText.textContent = `🏆 ${playerName(player)} wins!`;
+    saveRoom();
+    moving = false;
+    return;
+  }
+
+  currentPlayer = (currentPlayer + 1) % positions.length;
+  statusText.textContent = positions.length === 1 ? "Singleplayer" : `${playerName(currentPlayer)}'s turn`;
+  saveRoom();
+
+  moving = false;
+  rollBtn.disabled = false;
+}
+
+updateRoomInfo();
+if(currentRoomCode){
+  loadRoom(currentRoomCode);
+}else{
+  hideGame();
+}
+window.addEventListener("resize", makeBoard);
+</script>
+</body>
+</html>
