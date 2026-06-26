@@ -262,6 +262,45 @@ button:disabled{opacity:.55}
   display:block;
 }
 
+
+#waitingLobby{
+  display:none;
+  max-width:720px;
+  margin:22px auto;
+  padding:22px;
+  background:#ffffffcc;
+  border-radius:20px;
+  box-shadow:0 8px 22px #0002;
+}
+#waitingLobby.show{
+  display:block;
+}
+#waitingLobby h2{
+  margin-top:0;
+}
+#bigPlayerList{
+  display:grid;
+  gap:10px;
+  margin:16px 0;
+}
+.bigPlayerRow{
+  padding:14px;
+  background:#f1f5f9;
+  border-radius:14px;
+  font-size:20px;
+  font-weight:bold;
+}
+#startBtn{
+  font-size:22px;
+  padding:14px 26px;
+  background:#2f9e44;
+  box-shadow:0 4px 0 #1f6f30;
+  color:white;
+}
+#startBtn:active{
+  box-shadow:0 1px 0 #1f6f30;
+}
+
 @media(max-width:760px){
   :root{--cell:9.2vw;--board:92vw}
   #wrap{border-width:5px}
@@ -279,6 +318,12 @@ button:disabled{opacity:.55}
   <button class="smallBtn" onclick="leaveRoom()">Leave</button>
 </div>
 <div id="roomInfo">No room yet</div>
+
+<div id="waitingLobby">
+  <h2>Lobby</h2>
+  <div id="bigPlayerList"></div>
+  <button id="startBtn" onclick="startGame()">Start</button>
+</div>
 
 <div id="gameArea">
   <div id="status">Player 1's turn</div>
@@ -368,6 +413,7 @@ let maxPlayers = 2;
 let joinedPlayers = 1;
 let myPlayerIndex = Number(localStorage.getItem("sl_myPlayerIndex") || 0);
 let players = [];
+let gameStarted = false;
 
 const snakes = {16:6, 47:26, 49:11, 62:19, 87:24, 98:78};
 const ladders = {2:38, 7:14, 21:42, 28:84, 51:67, 71:91};
@@ -412,7 +458,8 @@ function saveRoom(){
     gameOver,
     maxPlayers,
     joinedPlayers,
-    players
+    players,
+    gameStarted
   };
   localStorage.setItem("sl_room_" + currentRoomCode, JSON.stringify(room));
   localStorage.setItem("sl_currentRoom", currentRoomCode);
@@ -429,11 +476,18 @@ function loadRoom(code){
   maxPlayers = room.maxPlayers || 2;
   joinedPlayers = room.joinedPlayers || 1;
   players = room.players || makeDefaultPlayers(maxPlayers);
+  gameStarted = !!room.gameStarted;
   localStorage.setItem("sl_currentRoom", currentRoomCode);
   updateRoomInfo();
-  showGame();
-  statusText.textContent = gameOver ? "Game finished!" : (maxPlayers === 1 ? "Singleplayer" : `${playerName(currentPlayer)}'s turn`);
-  makeBoard();
+
+  if(maxPlayers > 1 && !gameStarted){
+    showWaitingLobby();
+  }else{
+    showGame();
+    statusText.textContent = gameOver ? "Game finished!" : (maxPlayers === 1 ? "Singleplayer" : `${playerName(currentPlayer)}'s turn`);
+    makeBoard();
+  }
+
   return true;
 }
 
@@ -464,10 +518,17 @@ function createRoom(){
   diceBox.textContent = "-";
   msg.textContent = "Local room created.";
   statusText.textContent = maxPlayers === 1 ? "Singleplayer" : `${playerName(0)}'s turn`;
+  gameStarted = maxPlayers === 1;
   saveRoom();
   updateRoomInfo();
-  showGame();
-  makeBoard();
+
+  if(maxPlayers === 1){
+    showGame();
+    makeBoard();
+  }else{
+    showWaitingLobby();
+  }
+
   closeCreateModal();
 }
 
@@ -508,6 +569,7 @@ function joinRoom(){
 
   if(loadRoom(code)){
     msg.textContent = "Joined local room.";
+    updateBigPlayerList();
     closeJoinModal();
   }
 }
@@ -526,6 +588,7 @@ function leaveRoom(){
   currentPlayer = 0;
   gameOver = false;
   moving = false;
+  gameStarted = false;
 
   localStorage.setItem("sl_myPlayerIndex", myPlayerIndex);
   localStorage.removeItem("sl_currentRoom");
@@ -537,6 +600,7 @@ function leaveRoom(){
   overlay.innerHTML = "";
 
   updateRoomInfo();
+  hideWaitingLobby();
   hideGame();
 }
 
@@ -566,10 +630,60 @@ function saveSettings(){
   refreshMyUsernameInRoom();
   updateRoomInfo();
   saveRoom();
+  updateBigPlayerList();
   closeSettings();
 }
 
+function showWaitingLobby(){
+  document.getElementById("waitingLobby").classList.add("show");
+  hideGame();
+  updateBigPlayerList();
+}
+
+function hideWaitingLobby(){
+  document.getElementById("waitingLobby").classList.remove("show");
+}
+
+function updateBigPlayerList(){
+  const box = document.getElementById("bigPlayerList");
+  if(!box) return;
+  box.innerHTML = "";
+
+  for(let i=0; i<maxPlayers; i++){
+    const row = document.createElement("div");
+    row.className = "bigPlayerRow";
+
+    let name = "Empty";
+    if(i < joinedPlayers){
+      name = playerName(i);
+      if(i === myPlayerIndex) name += " (you)";
+      if(i === 0) name += " - Host";
+    }
+
+    row.textContent = name;
+    box.appendChild(row);
+  }
+
+  const startBtn = document.getElementById("startBtn");
+  if(startBtn){
+    startBtn.style.display = myPlayerIndex === 0 ? "inline-block" : "none";
+  }
+}
+
+function startGame(){
+  if(myPlayerIndex !== 0){
+    msg.textContent = "Only the host can start the game.";
+    return;
+  }
+  gameStarted = true;
+  saveRoom();
+  hideWaitingLobby();
+  showGame();
+  makeBoard();
+}
+
 function showGame(){
+  hideWaitingLobby();
   document.getElementById("gameArea").classList.add("show");
 }
 
@@ -769,6 +883,11 @@ async function movePlayer(player, from, to, usePath=false){
 
 async function rollDice(){
   if(gameOver || moving) return;
+
+  if(maxPlayers > 1 && !gameStarted){
+    msg.textContent = "The host needs to start the game first.";
+    return;
+  }
 
   if(positions.length > 1 && currentPlayer !== myPlayerIndex){
     msg.textContent = `Not your turn! It is ${playerName(currentPlayer)}'s turn.`;
